@@ -1,0 +1,38 @@
+# Дочірній Application: Helm-чарт BoardGame Shelf із цього ж репозиторію.
+# Його створює кореневий Application (bootstrap/root-app.yaml), вручну не застосовується.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: boardgame-shelf
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: boardgame-shelf
+  # при видаленні Application Argo CD видаляє і всі його об'єкти в кластері
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YehorIshchuk/boardgame-shelf-gitops.git
+    targetRevision: main
+    path: charts/boardgame-shelf
+    helm:
+      valueFiles:
+        - ../../environments/minikube/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: boardgame
+  syncPolicy:
+    automated:
+      # видаляти з кластера об'єкти, яких більше немає в Git
+      prune: true
+      # повертати ручні зміни в кластері до стану з Git (п. 6a: спочатку false, потім true)
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 1m

@@ -1,0 +1,31 @@
+name: Validate
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  chart:
+    name: Helm chart (lint, template)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.21.3
+
+      - name: Lint with minikube values
+        run: helm lint charts/boardgame-shelf -f environments/minikube/values.yaml
+
+      - name: Render as Argo CD would (release = Application name)
+        run: |
+          helm template boardgame-shelf charts/boardgame-shelf -n boardgame \
+            -f environments/minikube/values.yaml > rendered.yaml
+          grep -c '^kind:' rendered.yaml
+          if grep -q '^kind: Secret' rendered.yaml; then echo "Secret must not be rendered (existingSecret)"; exit 1; fi
+
+      - name: No plaintext passwords in Git
+        run: |
+          if grep -rniE 'password: *"[^"]+"' --include='*.yaml' .; then echo "plaintext password found"; exit 1; fi

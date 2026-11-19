@@ -1,0 +1,58 @@
+# Значення для локального кластера minikube.
+# Це «бажаний стан»: змініть файл, зробіть commit і push — Argo CD сам приведе кластер до нього.
+
+image:
+  # Тег образів backend і frontend (ghcr.io/yehorishchuk/boardgame-shelf-*).
+  # Реліз нової версії = зміна цього рядка в Git.
+  tag: "1.1.0"
+
+config:
+  aspnetEnvironment: Production
+  clubName: "Кубик і Ко"
+  maxBorrowDays: 14
+  logLevel: Information
+
+backend:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+frontend:
+  replicaCount: 2
+  service:
+    type: NodePort
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+
+database:
+  auth:
+    username: shelf_app
+    # Secret створює bootstrap/install.sh поза Git (пароль генерується на місці)
+    existingSecret: boardgame-db
+  persistence:
+    enabled: true
+    size: 1Gi
+
+# Deployment з образом, який не вдається завантажити, стане Degraded через 2 хв (а не 10)
+progressDeadlineSeconds: 120
+
+ingress:
+  enabled: false
+
+# Argo CD виконує Helm-хук pre-upgrade як PreSync — і при першій синхронізації,
+# коли БД ще немає, він би падав. Тест helm test теж не для Argo CD.
+hooks:
+  preUpgradeDbCheck:
+    enabled: false
+tests:
+  enabled: false
