@@ -29,7 +29,7 @@ spec:
       # видаляти з кластера об'єкти, яких більше немає в Git
       prune: true
       # повертати ручні зміни в кластері до стану з Git (п. 6a: спочатку false, потім true)
-      selfHeal: false
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
     retry:
