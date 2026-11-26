@@ -1,7 +1,7 @@
 # Кореневий Application (патерн App of Apps) — ЄДИНИЙ об'єкт Argo CD, що застосовується вручну:
-#   kubectl apply -f bootstrap/root-app.yaml
-# Він стежить за каталогом apps/ і створює з нього дочірні Application. Додати новий
-# застосунок у кластер = додати його опис у apps/ і зробити commit.
+#   kubectl apply -f bootstrap/root.yaml
+# Він стежить за каталогом argocd-apps/ і створює з нього дочірні Application. Додати новий
+# застосунок у кластер = додати його опис у argocd-apps/ і зробити commit.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/YehorIshchuk/boardgame-shelf-gitops.git
     targetRevision: main
-    path: apps
+    path: argocd-apps
     directory:
       recurse: false
   destination:

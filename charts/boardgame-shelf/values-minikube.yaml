@@ -1,7 +1,9 @@
-# Значення для локального кластера minikube.
+# Значення для локального кластера minikube (charts/boardgame-shelf/values-minikube.yaml).
 # Це «бажаний стан»: змініть файл, зробіть commit і push — Argo CD сам приведе кластер до нього.
 
 image:
+  registry: ghcr.io/yehorishchuk     # образи: <registry>/boardgame-shelf-backend|frontend:<tag>
+  pullPolicy: IfNotPresent
   # Тег образів backend і frontend (ghcr.io/yehorishchuk/boardgame-shelf-*).
   # Реліз нової версії = зміна цього рядка в Git.
   tag: "1.1.0"
@@ -37,7 +39,8 @@ frontend:
 database:
   auth:
     username: shelf_app
-    # Secret створює bootstrap/install.sh поза Git (пароль генерується на місці)
+    # Secret створюється вручну поза Git (bootstrap/install.sh, пароль генерується на місці).
+    # Argo CD не видаляє його навіть з prune, бо він не з Git.
     existingSecret: boardgame-db
   persistence:
     enabled: true

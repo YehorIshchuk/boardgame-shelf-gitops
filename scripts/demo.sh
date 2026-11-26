@@ -9,14 +9,15 @@
 #   ./scripts/demo.sh revert            # п.6c git revert -> назад у Healthy, історія
 #   ./scripts/demo.sh reset             # повернути вихідний стан (1.1.0, selfHeal: false) для повтору
 #   ./scripts/demo.sh all               # status release drift degraded revert
-# Передумова: argocd login localhost:8080 --plaintext --grpc-web (див. README).
+# Передумова: port-forward до Argo CD і argocd login localhost:8080 --username admin --insecure (див. README);
+# для curl з хоста — port-forward до застосунку на 8081 (необов'язково).
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP=boardgame-shelf
 NS=boardgame
-VALUES="$ROOT/environments/minikube/values.yaml"
-CHILD="$ROOT/apps/boardgame-shelf.yaml"
+VALUES="$ROOT/charts/boardgame-shelf/values-minikube.yaml"
+CHILD="$ROOT/argocd-apps/boardgame-shelf.yaml"
 OUT="$ROOT/report/output"
 PAUSE="${PAUSE:-1}"
 BAD_TAG="9.9.9-does-not-exist"
@@ -58,6 +59,10 @@ set_selfheal() { perl -pi -e "s/selfHeal: (true|false)/selfHeal: $1/" "$CHILD"; 
 
 api_version() { # <file>
   run "$1" "kubectl -n $NS exec deploy/$APP-frontend -- wget -qO- http://127.0.0.1/api/version; echo"
+  # якщо запущено kubectl -n $NS port-forward svc/$APP-frontend 8081:80 — те саме з хоста
+  if curl -s --max-time 2 localhost:8081/api/version >/dev/null 2>&1; then
+    run "$1" "curl -s localhost:8081/api/version; echo"
+  fi
 }
 
 # ------------------------------------------------------------------ 3-4
@@ -67,12 +72,16 @@ stage_status() {
   run 01-status "argocd version --short 2>/dev/null || argocd version"
   run 01-status "kubectl -n argocd get pods"
   run 01-status "argocd app list"
+  run 01-status "argocd app get root"
   run 01-status "argocd app get $APP --refresh | head -40"
   run 01-status "kubectl -n $NS get deploy,rs,pods,svc,pvc,cm,secret"
+  note 01-status "Helm лише рендерить шаблони: релізу Helm у кластері немає"
+  run 01-status "helm list -n $NS"
   api_version 01-status
   cat <<EOF
 
-  Інтерфейс: kubectl -n argocd port-forward svc/argocd-server 8080:80  ->  http://localhost:8080
+  Інтерфейс:  kubectl -n argocd port-forward svc/argocd-server 8080:443   ->  https://localhost:8080
+  Застосунок: kubectl -n $NS port-forward svc/$APP-frontend 8081:80      ->  http://localhost:8081
   Скриншоти: список застосунків (root і $APP), дерево $APP (Synced / Healthy).
 EOF
   pause
@@ -120,7 +129,7 @@ stage_drift() {
   run 03-drift "kubectl -n $NS get deploy $APP-backend"
   pause
 
-  section "6a. Вмикаємо selfHeal: true у Git (apps/boardgame-shelf.yaml)"
+  section "6a. Вмикаємо selfHeal: true у Git (argocd-apps/boardgame-shelf.yaml)"
   set_selfheal true
   commit_push 03-drift "argocd: enable selfHeal for $APP"
   rev="$(git -C "$ROOT" rev-parse HEAD)"
@@ -149,6 +158,7 @@ stage_degraded() {
     "[[ \"\$(kubectl -n argocd get application $APP -o jsonpath='{.status.sync.revision}')\" == $rev ]]"
   wait_for 04-degraded "health=Degraded (progressDeadlineSeconds: 120)" 360 \
     "[[ \"\$(kubectl -n argocd get application $APP -o jsonpath='{.status.health.status}')\" == Degraded ]]"
+  run 04-degraded "cd '$ROOT' && git --no-pager log --oneline -3"
   run 04-degraded "argocd app get $APP | sed -n '1,30p'"
   run 04-degraded "kubectl -n $NS get pods"
   note 04-degraded "старі поди продовжують обслуговувати запити (maxUnavailable: 0)"
