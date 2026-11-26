@@ -6,7 +6,7 @@ image:
   pullPolicy: IfNotPresent
   # Тег образів backend і frontend (ghcr.io/yehorishchuk/boardgame-shelf-*).
   # Реліз нової версії = зміна цього рядка в Git.
-  tag: "9.9.9-does-not-exist"
+  tag: "1.2.0"
 
 config:
   aspnetEnvironment: Production
